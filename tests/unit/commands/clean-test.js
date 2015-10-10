@@ -1,13 +1,12 @@
 'use strict';
 
-var expect         = require('chai').expect;
-var stub           = require('../../helpers/stub').stub;
-var MockProject    = require('../../helpers/mock-project');
-var commandOptions = require('../../factories/command-options');
-var Task           = require('../../../lib/models/task');
-var Promise        = require('../../../lib/ext/promise');
-// var AddonInstall   = require('../../../lib/tasks/addon-install');
-var CleanCommand = require('../../../lib/commands/clean');
+var expect          = require('chai').expect;
+var stub            = require('../../helpers/stub').stub;
+var MockProject     = require('../../helpers/mock-project');
+var commandOptions  = require('../../factories/command-options');
+var Task            = require('../../../lib/models/task');
+var Promise         = require('../../../lib/ext/promise');
+var CleanCommand    = require('../../../lib/commands/clean');
 
 describe('install command', function() {
   var npmInstance, bowerInstance, removeFilesInstance;
