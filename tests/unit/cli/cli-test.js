@@ -12,6 +12,8 @@ var commands = {};
 var argv;
 var isWithinProject;
 
+var FAKE_PROJECT_NAME = 'test-project';
+
 // helper to similate running the CLI
 function ember(args) {
   return new CLI({
@@ -32,6 +34,9 @@ function ember(args) {
       },
       blueprintLookupPaths: function() {
         return [];
+      },
+      name: function() {
+        return FAKE_PROJECT_NAME;
       }
     }
   });
