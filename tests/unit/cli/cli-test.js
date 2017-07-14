@@ -295,7 +295,6 @@ describe('Unit: CLI', function() {
 
       return ember(['serve']).finally(function() {
         td.verify(teardownHandler());
-        td.verify(willInterruptProcess.teardown());
       });
     });
   });
