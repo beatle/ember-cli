@@ -212,10 +212,10 @@ describe('will interrupt process', function() {
 
       willInterruptProcess.capture(process);
 
-      willInterruptProcess.addHandler(cb);
+      const removeHandler = willInterruptProcess.addHandler(cb);
       expect(process.stdin.isRaw).to.equal(true);
 
-      willInterruptProcess.removeHandler(cb);
+      removeHandler();
       expect(process.stdin.isRaw).to.equal(false);
     });
 
