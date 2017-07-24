@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs-extra');
 const RSVP = require('rsvp');
 const runCommand = require('./run-command');
+const querystring = require('querystring');
 
 let root = path.resolve(__dirname, '..', '..');
 
@@ -98,7 +99,7 @@ function linkDependencies(projectName) {
   let nodeManifest = fs.readFileSync(path.join(runFixture, 'package.json'));
 
   let packageCache = new PackageCache(root);
-  packageCache.create('node', 'yarn', nodeManifest, [{ name: 'ember-cli', path: root }]);
+  packageCache.create('node', 'npm', nodeManifest, [{ name: 'ember-cli', path: root }]);
 
   let nodeModulesPath = path.join(runFixture, 'node_modules');
   symlinkOrCopySync(path.join(packageCache.get('node'), 'node_modules'), nodeModulesPath);
@@ -121,4 +122,84 @@ module.exports = {
   linkDependencies,
   teardownTestTargets,
   cleanupRun,
+  generateProject,
 };
+
+function generate(projectName, options) {
+  let commandArgs = [
+    options.command,
+    projectName,
+    `--directory=${options.directory}`,
+  ];
+
+  if (!options.skipPackages) {
+    commandArgs = commandArgs.concat(['--skip-npm', '--skip-bower']);
+  }
+
+  return applyCommand.apply(this, commandArgs)
+    .then(() => {
+      if (options.eslint !== false) { // @todo: defaults
+        let eslintConfig = `module.exports = {
+          root: true,
+          parserOptions: {
+            sourceType: 'module'
+          },
+        };`;
+
+        return outputFile(`${options.directory}/.eslintrc.js`, eslintConfig);
+      }
+    })
+    .catch(handleResult);
+}
+
+function generateProject(projectName, options) {
+  options = normalizeOptions(options);
+
+  const projectPath = tmpPath(targetId(options));
+  if (isProjectDir(projectPath)) {
+    return projectPath;
+  }
+
+  options.directory = projectPath;
+  if (!isProjectDir(options.directory)) {
+    return generate(projectName, options)
+      .then(() => linkDependencies(targetId(options)))
+      .then(() => options.directory);
+  }
+}
+
+function normalizeOptions(options) {
+  options = options || {};
+
+  if (!options.command) {
+    options.command = 'new';
+  }
+
+  return options;
+}
+
+function targetId(options) {
+  options = options || {};
+
+  const name = options.command;
+  delete options.command;
+  const safeOptions = encodeURIComponent(querystring.stringify(options));
+
+  return `${name}?${safeOptions}`;
+}
+
+function tmpPath(id) {
+  return path.join(`..`, '..', 'tmp', id);
+}
+
+function isProjectDir(dir) {
+  if (!fs.existsSync(dir)) {
+    return false;
+  }
+
+  if (!fs.existsSync(path.join(`${dir}`, '/', 'package.json'))) {
+    return false;
+  }
+
+  return true;
+}

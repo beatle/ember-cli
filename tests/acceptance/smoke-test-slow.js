@@ -6,12 +6,15 @@ const fs = require('fs-extra');
 const crypto = require('crypto');
 const walkSync = require('walk-sync');
 const EOL = require('os').EOL;
+const execa = require('execa');
+const rimrafSync = require('rimraf').sync;
 
 const runCommand = require('../helpers/run-command');
 const acceptance = require('../helpers/acceptance');
 const copyFixtureFiles = require('../helpers/copy-fixture-files');
 const killCliProcess = require('../helpers/kill-cli-process');
 const ember = require('../helpers/ember');
+let generateProject = acceptance.generateProject;
 let createTestTargets = acceptance.createTestTargets;
 let teardownTestTargets = acceptance.teardownTestTargets;
 let linkDependencies = acceptance.linkDependencies;
@@ -28,19 +31,28 @@ let appRoot;
 describe('Acceptance: smoke-test', function() {
   this.timeout(500000);
   before(function() {
-    return createTestTargets(appName, { createESLintConfig: true });
+    appRoot = "C:\\Users\\kudgo\\workspace\\ember-cli\\tmp\\some_cool_app_clone-r175mZf5.tmp";
+    // return createTestTargets(appName, { createESLintConfig: true });
+    // rimrafSync(path.join(appRoot, 'node_modules', '.bin'));
+    // return execa('npm', ['rebuild'], {
+      // cwd: appRoot,
+      // stdio: 'inherit',
+    // });
   });
 
-  after(teardownTestTargets);
+  // after(teardownTestTargets);
 
   beforeEach(function() {
-    appRoot = linkDependencies(appName);
+    process.chdir(appRoot);
+    appRoot = generateProject(appName);
+    // appRoot = linkDependencies(appName);
+
   });
 
   afterEach(function() {
     delete process.env._TESTEM_CONFIG_JS_RAN;
-    cleanupRun(appName);
-    expect(dir(appRoot)).to.not.exist;
+    // cleanupRun(appName);
+    // expect(dir(appRoot)).to.not.exist;
   });
 
   it('ember new foo, clean from scratch', function() {
