@@ -6,6 +6,7 @@ const fs = require('fs-extra');
 const crypto = require('crypto');
 const walkSync = require('walk-sync');
 const EOL = require('os').EOL;
+const rimraf = require('rimraf');
 
 const runCommand = require('../helpers/run-command');
 const acceptance = require('../helpers/acceptance');
@@ -26,22 +27,48 @@ let appName = 'some-cool-app';
 let appRoot;
 
 describe('Acceptance: smoke-test', function() {
-  this.timeout(500000);
+  this.timeout(5000000);
   before(function() {
     return createTestTargets(appName, { createESLintConfig: true });
   });
 
-  after(teardownTestTargets);
+  // after(teardownTestTargets);
 
   beforeEach(function() {
     appRoot = linkDependencies(appName);
+    console.log(appRoot);
+    console.log(process.cwd());
   });
 
   afterEach(function() {
     delete process.env._TESTEM_CONFIG_JS_RAN;
-    cleanupRun(appName);
-    expect(dir(appRoot)).to.not.exist;
+    return (new Promise(r => {
+      setTimeout(() => rimraf(appRoot, {}, r), 50000);
+    }))
+    .then(() => {
+      expect(dir(appRoot)).to.not.exist;
+      // cleanupRun(appName);
+    });
   });
+
+  it.only('ember new foo, test, SIGINT exits with error and clears tmp/', co.wrap(function *() {
+    let result = yield expect(runCommand(path.join('.', 'node_modules', 'ember-cli', 'bin', 'ember'), 'test', '--test-port=25522', {
+      onOutput(string, child) {
+        // wait for the first passed test and then exit
+        if (string.match(/^ok /)) {
+          killCliProcess(child);
+        }
+      },
+    })).to.be.rejected;
+
+    console.log(`result`, result);
+
+    let dirPath = path.join(appRoot, 'tmp');
+    let dir = fs.readdirSync(dirPath).filter(file => file !== '.metadata_never_index');
+
+    expect(result.code, 'should be error exit code').to.not.equal(0);
+    expect(dir.length, '/tmp should be empty').to.equal(0);
+  }));
 
   it('ember new foo, clean from scratch', function() {
     return runCommand(path.join('.', 'node_modules', 'ember-cli', 'bin', 'ember'), 'test');
@@ -296,23 +323,6 @@ describe('Acceptance: smoke-test', function() {
     let dir = fs.readdirSync(dirPath).filter(file => file !== '.metadata_never_index');
 
     expect(result.code, 'should be zero exit code').to.equal(0);
-    expect(dir.length, '/tmp should be empty').to.equal(0);
-  }));
-
-  it('ember new foo, test, SIGINT exits with error and clears tmp/', co.wrap(function *() {
-    let result = yield expect(runCommand(path.join('.', 'node_modules', 'ember-cli', 'bin', 'ember'), 'test', '--test-port=25522', {
-      onOutput(string, child) {
-        // wait for the first passed test and then exit
-        if (string.match(/^ok /)) {
-          killCliProcess(child);
-        }
-      },
-    })).to.be.rejected;
-
-    let dirPath = path.join(appRoot, 'tmp');
-    let dir = fs.readdirSync(dirPath).filter(file => file !== '.metadata_never_index');
-
-    expect(result.code, 'should be error exit code').to.not.equal(0);
     expect(dir.length, '/tmp should be empty').to.equal(0);
   }));
 

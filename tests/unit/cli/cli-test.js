@@ -5,10 +5,7 @@ const MockUI = require('console-ui/mock');
 const MockAnalytics = require('../../helpers/mock-analytics');
 const td = require('testdouble');
 const Command = require('../../../lib/models/command');
-const Promise = require('rsvp').Promise;
-const SilentError = require('silent-error');
 const willInterruptProcess = require('../../../lib/utilities/will-interrupt-process');
-const captureExit = require('capture-exit');
 const MockProcess = require('../../helpers/mock-process');
 
 let ui;
@@ -17,7 +14,6 @@ let commands = {};
 let isWithinProject;
 let project;
 let _process;
-let origExit;
 
 let CLI;
 
@@ -33,11 +29,11 @@ function ember(args) {
   let stopInstr = td.replace(cli.instrumentation, 'stopAndReport');
 
   return cli.run({
+    project,
     tasks: {},
     commands,
     cliArgs: args || [],
     settings: {},
-    project,
   }).then(function(value) {
     td.verify(stopInstr('init'), { times: 1 });
     td.verify(startInstr('command'), { times: 1 });
@@ -46,14 +42,6 @@ function ember(args) {
 
     return value;
   });
-}
-
-function registerCommand(Command) {
-  project.eachAddonCommand = function(callback) {
-    callback(Command.name, {
-      Command,
-    });
-  };
 }
 
 function stubCallHelp() {
@@ -78,21 +66,9 @@ function stubRun(name) {
 }
 
 describe('Unit: CLI', function() {
+  this.timeout(2000000);
   beforeEach(function() {
-
-    _process = new MockProcess({
-      exit() {
-        // force `process-exit` to handle exit
-        process.exit();
-      },
-    });
-
-    // capture-exit doesn't support `process` injection
-    // instead it always uses global `process`
-    origExit = process.exit;
-    // if we leave original exit then test run will be stopped once we send SIGINT
-    process.exit = function() {};
-
+    _process = new MockProcess();
     willInterruptProcess.capture(_process);
     CLI = require('../../../lib/cli/cli');
     ui = new MockUI();
@@ -118,8 +94,6 @@ describe('Unit: CLI', function() {
     delete process.env.EMBER_ENV;
     commands = ui = undefined;
     willInterruptProcess.release();
-    captureExit._reset();
-    process.exit = origExit;
   });
 
   this.timeout(10000);
@@ -254,79 +228,6 @@ describe('Unit: CLI', function() {
     });
   });
 
-  describe('command interruption', function() {
-    let interruptionHandeled;
-    beforeEach(function() {
-      interruptionHandeled = false;
-    });
-
-    const FakeCommand = Command.extend({
-      name: 'fake',
-
-      beforeRun() {
-        return Promise.resolve();
-      },
-
-      run() {
-        return new Promise(resolve => {
-          setTimeout(() => resolve(), 50);
-        });
-      },
-
-      onInterrupt() {
-        return new Promise(resolve => {
-          setTimeout(() => {
-            interruptionHandeled = true;
-            resolve();
-          }, 100); // ensure we cleanup longer than command run executed
-        });
-      },
-    });
-
-    it('sets up handler before command run', function() {
-      registerCommand(FakeCommand.extend({
-        beforeRun() {
-          _process.emit('SIGINT');
-        },
-      }));
-
-      return ember(['fake']).finally(function() {
-        expect(interruptionHandeled).to.equal(true);
-      });
-    });
-
-    it('cleans up handler right after command is finished', function() {
-      registerCommand(FakeCommand.extend({
-        onInterrupt() {
-          interruptionHandeled = true;
-        },
-      }));
-
-      return ember(['fake']).finally(function() {
-        _process.emit('SIGINT');
-
-        // ensure interruption handler has enough time to be triggered
-        return new Promise(resolve => setTimeout(resolve, 50));
-      }).then(() => {
-        expect(interruptionHandeled).to.equal(false);
-      });
-    });
-
-    it(`rejected with a proper error on crash`, function() {
-      const error = new SilentError('OMG');
-
-      registerCommand(FakeCommand.extend({
-        run() {
-          throw error;
-        },
-      }));
-
-      return expect(ember(['fake'])).to.be.rejectedWith(error).then(() => {
-        expect(interruptionHandeled).to.equal(false);
-      });
-    });
-
-  });
 
   describe('help', function() {
     ['--help', '-h'].forEach(function(command) {
