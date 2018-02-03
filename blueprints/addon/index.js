@@ -13,10 +13,38 @@ let date = new Date();
 const normalizeEntityName = require('ember-cli-normalize-entity-name');
 const stringifyAndNormalize = require('../../lib/utilities/stringify-and-normalize');
 const FileInfo = require('../../lib/models/file-info');
+const insertIntoString = require('../../lib/utilities/insert-into-string');
 
 const replacers = {
   'package.json'(content) {
     return this.updatePackageJson(content);
+  },
+  '.eslintrc.js'(content) {
+    content = insertIntoString(content, `        'index.js',`, {
+      eol: '\n',
+      after: `      files: [\n`,
+    }).contents;
+
+    content = insertIntoString(content, `,\n        'tests/dummy/config/**/*.js'`, {
+      eol: '',
+      after: `        'config/**/*.js'`,
+    }).contents;
+
+    content = insertIntoString(content, `      excludedFiles: [\n        'app/**',\n        'addon/**',\n        'tests/dummy/app/**'\n      ],`, {
+      eol: '\n',
+      before: `      parserOptions: {`,
+    }).contents;
+
+    content = insertIntoString(
+      content, `,\n      plugins: ['node'],
+      rules: Object.assign({}, require('eslint-plugin-node').configs.recommended.rules, {
+        // add your custom rules and overrides for node files here
+      })`, {
+        after: /[ ]{6}env: \{([\s]{8}[^}]*,?)*\n[ ]{6}},?/,
+        eol: '',
+      }).contents;
+
+    return content;
   },
 };
 
@@ -134,6 +162,7 @@ module.exports = {
       yarn: options.yarn,
       welcome: options.welcome,
       blueprint: 'addon',
+      nodeFiles: [],
     };
   },
 
