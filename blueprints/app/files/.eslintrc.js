@@ -22,8 +22,7 @@ module.exports = {
       files: [
         'testem.js',
         'ember-cli-build.js',
-        'config/**/*.js'<% if (blueprint === 'app') { %>,
-        'lib/*/index.js'<% } %>
+        'config/**/*.js'
       ],
       parserOptions: {
         sourceType: 'script',
